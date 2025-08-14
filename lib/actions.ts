@@ -74,7 +74,8 @@ export async function signIn(prevState: any, formData: FormData) {
       })
     }
 
-    return { success: true }
+    // Redirect to dashboard after successful login
+    redirect("/dashboard")
   } catch (error) {
     console.error("Login error:", error)
     return { error: "Terjadi kesalahan yang tidak terduga. Silakan coba lagi." }
