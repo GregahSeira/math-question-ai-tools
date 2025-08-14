@@ -19,7 +19,28 @@ class SupabaseClient {
 
   private getAuthToken(): string | null {
     if (typeof window === "undefined") return null
-    return localStorage.getItem("sb-access-token")
+
+    const cookies = document.cookie.split(";")
+    for (const cookie of cookies) {
+      const [name, value] = cookie.trim().split("=")
+      if (name === "sb-access-token") {
+        return decodeURIComponent(value)
+      }
+    }
+    return null
+  }
+
+  private setCookie(name: string, value: string, days = 7) {
+    if (typeof window === "undefined") return
+
+    const expires = new Date()
+    expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000)
+    document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()};path=/;SameSite=Lax`
+  }
+
+  private deleteCookie(name: string) {
+    if (typeof window === "undefined") return
+    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`
   }
 
   private getHeaders(): HeadersInit {
@@ -54,10 +75,9 @@ class SupabaseClient {
         return { data: null, error: data }
       }
 
-      // Store token in localStorage
       if (typeof window !== "undefined" && data.access_token) {
-        localStorage.setItem("sb-access-token", data.access_token)
-        localStorage.setItem("sb-refresh-token", data.refresh_token)
+        this.setCookie("sb-access-token", data.access_token)
+        this.setCookie("sb-refresh-token", data.refresh_token)
       }
 
       return { data, error: null }
@@ -84,8 +104,8 @@ class SupabaseClient {
 
     signOut: async () => {
       if (typeof window !== "undefined") {
-        localStorage.removeItem("sb-access-token")
-        localStorage.removeItem("sb-refresh-token")
+        this.deleteCookie("sb-access-token")
+        this.deleteCookie("sb-refresh-token")
       }
       return { error: null }
     },
@@ -117,6 +137,22 @@ class SupabaseClient {
     return {
       select: (columns = "*") => ({
         eq: (column: string, value: any) => ({
+          order: (column: string, options?: { ascending?: boolean }) => ({
+            execute: async () => {
+              const orderParam = options?.ascending === false ? `${column}.desc` : `${column}.asc`
+              const response = await fetch(`${this.baseUrl}/rest/v1/${table}?select=${columns}&order=${orderParam}`, {
+                headers: this.getHeaders(),
+              })
+
+              if (!response.ok) {
+                return { data: null, error: await response.json() }
+              }
+
+              const data = await response.json()
+              return { data, error: null }
+            },
+          }),
+
           single: async () => {
             const response = await fetch(
               `${this.baseUrl}/rest/v1/${table}?select=${columns}&${column}=eq.${value}&limit=1`,
