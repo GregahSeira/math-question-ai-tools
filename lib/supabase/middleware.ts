@@ -1,4 +1,4 @@
-import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs"
+import { createClient } from "@supabase/supabase-js"
 import { NextResponse, type NextRequest } from "next/server"
 
 // Check if Supabase environment variables are available
@@ -18,24 +18,17 @@ export async function updateSession(request: NextRequest) {
 
   const res = NextResponse.next()
 
-  // Create a Supabase client configured to use cookies
-  const supabase = createMiddlewareClient({ req: request, res })
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
   // Check if this is an auth callback
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get("code")
 
   if (code) {
-    // Exchange the code for a session
-    await supabase.auth.exchangeCodeForSession(code)
-    // Redirect to dashboard after successful auth
+    // Redirect to dashboard after auth callback
     return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 
-  // Refresh session if expired - required for Server Components
-  await supabase.auth.getSession()
-
-  // Protected routes - redirect to login if not authenticated
   const isAuthRoute =
     request.nextUrl.pathname.startsWith("/auth/login") ||
     request.nextUrl.pathname.startsWith("/auth/register") ||
@@ -43,11 +36,10 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname === "/"
 
   if (!isAuthRoute) {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
+    // Check for auth token in cookies
+    const authToken = request.cookies.get("sb-access-token")
 
-    if (!session) {
+    if (!authToken) {
       const redirectUrl = new URL("/auth/login", request.url)
       return NextResponse.redirect(redirectUrl)
     }
