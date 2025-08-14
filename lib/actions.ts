@@ -1,11 +1,37 @@
 "use server"
 
-import { createClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 
-function getSupabaseClient() {
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+// HTTP-based auth functions
+async function supabaseAuthRequest(endpoint: string, body: any) {
+  const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/${endpoint}`, {
+    method: "POST",
+    headers: {
+      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  })
+
+  const data = await response.json()
+  return { data, error: response.ok ? null : data, ok: response.ok }
+}
+
+async function supabaseDbRequest(table: string, method: string, body?: any, query?: string) {
+  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/${table}${query ? `?${query}` : ""}`
+
+  const response = await fetch(url, {
+    method,
+    headers: {
+      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      "Content-Type": "application/json",
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  })
+
+  const data = await response.json()
+  return { data, error: response.ok ? null : data, ok: response.ok }
 }
 
 // Sign in action
@@ -21,28 +47,26 @@ export async function signIn(prevState: any, formData: FormData) {
     return { error: "Email dan kata sandi wajib diisi" }
   }
 
-  const supabase = getSupabaseClient()
-
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error, ok } = await supabaseAuthRequest("token?grant_type=password", {
       email: email.toString(),
       password: password.toString(),
     })
 
-    if (error) {
-      return { error: error.message }
+    if (!ok || error) {
+      return { error: error?.message || "Login gagal" }
     }
 
-    // Set auth cookies manually
-    if (data.session) {
+    // Set auth cookies
+    if (data.access_token) {
       const cookieStore = cookies()
-      cookieStore.set("sb-access-token", data.session.access_token, {
+      cookieStore.set("sb-access-token", data.access_token, {
         httpOnly: true,
         secure: true,
         sameSite: "lax",
-        maxAge: data.session.expires_in,
+        maxAge: data.expires_in || 3600,
       })
-      cookieStore.set("sb-refresh-token", data.session.refresh_token, {
+      cookieStore.set("sb-refresh-token", data.refresh_token, {
         httpOnly: true,
         secure: true,
         sameSite: "lax",
@@ -71,37 +95,30 @@ export async function signUp(prevState: any, formData: FormData) {
     return { error: "Semua field wajib diisi" }
   }
 
-  const supabase = getSupabaseClient()
-
   try {
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    const {
+      data: authData,
+      error: authError,
+      ok,
+    } = await supabaseAuthRequest("signup", {
       email: email.toString(),
       password: password.toString(),
-      options: {
-        emailRedirectTo:
-          process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
-          `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/dashboard`,
-        data: {
-          full_name: fullName.toString(),
-        },
+      data: {
+        full_name: fullName.toString(),
       },
     })
 
-    if (authError) {
-      return { error: authError.message }
+    if (!ok || authError) {
+      return { error: authError?.message || "Registrasi gagal" }
     }
 
+    // Create user record in custom users table
     if (authData.user) {
-      const { error: userError } = await supabase.from("users").insert({
+      await supabaseDbRequest("users", "POST", {
         id: authData.user.id,
         email: email.toString(),
         full_name: fullName.toString(),
       })
-
-      if (userError) {
-        console.error("Error creating user record:", userError)
-        // Don't return error here as auth user was created successfully
-      }
     }
 
     return { success: "Periksa email Anda untuk mengkonfirmasi akun." }
@@ -113,9 +130,6 @@ export async function signUp(prevState: any, formData: FormData) {
 
 // Sign out action
 export async function signOut() {
-  const supabase = getSupabaseClient()
-  await supabase.auth.signOut()
-
   // Clear auth cookies
   const cookieStore = cookies()
   cookieStore.delete("sb-access-token")
