@@ -10,11 +10,12 @@ class SupabaseClient {
   private anonKey: string
 
   constructor() {
-    if (!isSupabaseConfigured) {
+    this.baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
+    this.anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+
+    if (!this.baseUrl || !this.anonKey) {
       throw new Error("Supabase environment variables are not configured")
     }
-    this.baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    this.anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   }
 
   private getAuthToken(): string | null {
