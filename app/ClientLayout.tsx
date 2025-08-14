@@ -20,18 +20,38 @@ const sourceSans = Source_Sans_3({
   weight: ["400", "500", "600"],
 })
 
+function ClientLayoutContent({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const searchParams = useSearchParams()
+
+  return (
+    <html lang="id" className={`${playfair.variable} ${sourceSans.variable}`}>
+      <body className="font-sans antialiased">{children}</body>
+    </html>
+  )
+}
+
 export default function ClientLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const searchParams = useSearchParams()
-
   return (
-    <html lang="id" className={`${playfair.variable} ${sourceSans.variable}`}>
-      <body className="font-sans antialiased">
-        <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
-      </body>
-    </html>
+    <Suspense
+      fallback={
+        <html lang="id" className={`${playfair.variable} ${sourceSans.variable}`}>
+          <body className="font-sans antialiased">
+            <div className="flex items-center justify-center min-h-screen">
+              <div>Loading...</div>
+            </div>
+          </body>
+        </html>
+      }
+    >
+      <ClientLayoutContent>{children}</ClientLayoutContent>
+    </Suspense>
   )
 }
