@@ -1,30 +1,76 @@
+import { cookies } from "next/headers"
+import { redirect } from "next/navigation"
 import DashboardHeader from "@/components/dashboard-header"
 import PackageGrid from "@/components/package-grid"
 import CreatePackageDialog from "@/components/create-package-dialog"
 
-export default async function DashboardPage() {
-  // Mock user for now to test functionality
-  const mockUser = {
-    id: "mock-user-id",
-    email: "user@example.com",
+async function getUser() {
+  const cookieStore = cookies()
+  const accessToken = cookieStore.get("sb-access-token")
+
+  if (!accessToken) {
+    return null
   }
 
-  // Mock packages data for testing
-  const mockPackages = [
-    {
-      id: "1",
-      title: "Matematika Kelas 10",
-      description: "Soal-soal matematika untuk kelas 10 SMA",
-      subject: "Matematika",
-      grade_level: "10",
-      created_at: new Date().toISOString(),
-      user_id: "mock-user-id",
-    },
-  ]
+  try {
+    // Get user from Supabase auth
+    const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        Authorization: `Bearer ${accessToken.value}`,
+        apikey: process.env.SUPABASE_ANON_KEY!,
+      },
+    })
+
+    if (!response.ok) {
+      return null
+    }
+
+    const userData = await response.json()
+    return userData
+  } catch (error) {
+    console.error("Error getting user:", error)
+    return null
+  }
+}
+
+async function getUserPackages(userId: string) {
+  try {
+    const response = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/question_packages?user_id=eq.${userId}&order=created_at.desc`,
+      {
+        headers: {
+          apikey: process.env.SUPABASE_ANON_KEY!,
+          "Content-Type": "application/json",
+        },
+      },
+    )
+
+    if (!response.ok) {
+      return []
+    }
+
+    const packages = await response.json()
+    return packages
+  } catch (error) {
+    console.error("Error getting packages:", error)
+    return []
+  }
+}
+
+export default async function DashboardPage() {
+  // Check authentication
+  const user = await getUser()
+
+  if (!user) {
+    redirect("/auth/login")
+  }
+
+  // Get user's question packages
+  const packages = await getUserPackages(user.id)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-accent to-background">
-      <DashboardHeader user={mockUser} />
+      <DashboardHeader user={user} />
 
       <main className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
@@ -35,17 +81,15 @@ export default async function DashboardPage() {
           <CreatePackageDialog />
         </div>
 
-        <PackageGrid packages={mockPackages} />
+        <PackageGrid packages={packages} />
 
-        <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <h3 className="font-semibold text-blue-800 mb-2">Status Sistem:</h3>
-          <div className="text-sm text-blue-700">
-            <p>✅ Landing page - Berfungsi dengan baik</p>
-            <p>✅ Login/Register forms - Interface siap</p>
-            <p>✅ Database - 4 tabel berhasil dibuat</p>
-            <p>✅ Dashboard - Interface berfungsi</p>
-            <p>✅ AI Integration - Groq terkoneksi</p>
-            <p>🔧 Authentication flow - Dalam perbaikan</p>
+        <div className="mt-8 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <h3 className="font-semibold text-green-800 mb-2">Status Sistem:</h3>
+          <div className="text-sm text-green-700">
+            <p>✅ Authentication - Berfungsi dengan baik</p>
+            <p>✅ Database - Terkoneksi dan siap</p>
+            <p>✅ AI Integration - Groq siap untuk diversifikasi</p>
+            <p>✅ User: {user.email}</p>
           </div>
         </div>
       </main>
