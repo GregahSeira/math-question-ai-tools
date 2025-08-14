@@ -2,10 +2,10 @@ import { cookies } from "next/headers"
 
 // HTTP-based Supabase client for server
 export const isSupabaseConfigured =
-  typeof process.env.NEXT_PUBLIC_SUPABASE_URL === "string" &&
-  process.env.NEXT_PUBLIC_SUPABASE_URL.length > 0 &&
-  typeof process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY === "string" &&
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.length > 0
+  typeof process.env.SUPABASE_URL === "string" &&
+  process.env.SUPABASE_URL.length > 0 &&
+  typeof process.env.SUPABASE_ANON_KEY === "string" &&
+  process.env.SUPABASE_ANON_KEY.length > 0
 
 class SupabaseServerClient {
   private baseUrl: string
@@ -16,8 +16,8 @@ class SupabaseServerClient {
     if (!isSupabaseConfigured) {
       throw new Error("Supabase environment variables are not configured")
     }
-    this.baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    this.anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    this.baseUrl = process.env.SUPABASE_URL!
+    this.anonKey = process.env.SUPABASE_ANON_KEY!
 
     // Get auth token from cookies
     const cookieStore = cookies()

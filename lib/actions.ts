@@ -5,10 +5,10 @@ import { redirect } from "next/navigation"
 
 // HTTP-based auth functions
 async function supabaseAuthRequest(endpoint: string, body: any) {
-  const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/${endpoint}`, {
+  const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/${endpoint}`, {
     method: "POST",
     headers: {
-      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      apikey: process.env.SUPABASE_ANON_KEY!,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
@@ -19,12 +19,12 @@ async function supabaseAuthRequest(endpoint: string, body: any) {
 }
 
 async function supabaseDbRequest(table: string, method: string, body?: any, query?: string) {
-  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/${table}${query ? `?${query}` : ""}`
+  const url = `${process.env.SUPABASE_URL}/rest/v1/${table}${query ? `?${query}` : ""}`
 
   const response = await fetch(url, {
     method,
     headers: {
-      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      apikey: process.env.SUPABASE_ANON_KEY!,
       "Content-Type": "application/json",
     },
     body: body ? JSON.stringify(body) : undefined,
